@@ -1,0 +1,134 @@
+module SHA(
+	input logic PCLK_IN,
+	input logic [4:0] PADDR_IN,
+	input logic PRESETn_IN,
+	input logic PSEL_IN,
+	input logic PENABLE_IN,
+	input logic PWRITE_IN,
+	input logic [31:0] PWDATA_IN,
+	output logic PREADY_OUT,
+	output logic [31:0] PRDATA_OUT);
+		
+	logic [31:0] regis [15:0];
+	logic [31:0] H [4:0]; //Hash
+	logic [31:0] W [79:0];
+	logic [6:0] t = 7'd0;
+	logic [31:0] T, a, b,c,d,e;
+	logic rodada = 1'b0;	
+	 
+	function rotation(logic [31:0] rotation,logic [4:0] num_rot);
+		rotation = (rotation << num_rot | rotation >> (6'd32 - num_rot));
+	endfunction: rotation
+
+	function Ft (logic [31:0] x, logic [31:0] y, logic [31:0] z, logic [6:0] t);
+			if (0 <= t <= 19)
+				Ft = ((x && y) ^ (~x && z)); 
+			else if (20 <= t <= 39)
+				Ft = (x ^ y ^ z);
+			else if (40 <= t <= 59)
+				Ft = ((x && y) ^ (x && z) ^ (y && z));
+			else if (60 <= t <= 79)
+				Ft = (x ^ y ^ z);
+	endfunction: Ft
+
+	function Kt ([6:0] t);
+			if (0 <= t <= 19)
+				Kt = (32'h5a827999);
+			else if (20 <= t <= 39)
+				Kt = (32'h6ed9eba1);
+			else if (40 <= t <= 59)
+				Kt = (32'h8f1bbcdc);
+			else if (60 <= t <= 79)
+				Kt = (32'hca62c1d6);
+	endfunction: Kt
+	
+	function Wt ([6:0] t);
+		if (0 <= t <= 15)
+			Wt = regis[t];
+		else if (16 <= t <= 79)
+			Wt = rotation((W[(t-3)] ^ W[(t-8)] ^ W[(t-14)] ^ W[(t-16)]), 1'b1);
+	endfunction: Wt
+
+	
+	always_ff @(posedge PCLK_IN or negedge PRESETn_IN) begin
+		if (~PRESETn_IN) begin
+			H[0] = 32'h67452301;
+			H[1] = 32'hefcdab89;
+			H[2] = 32'h98badcfe;
+			H[3] = 32'h10325476;
+			H[4] = 32'hc3d2e1f0;
+			t = 7'd0;
+			regis [0] = 32'b0;
+			regis [1] = 32'b0;
+			regis [2] = 32'b0;
+			regis [3] = 32'b0;
+			regis [4] = 32'b0;
+			regis [5] = 32'b0;
+			regis [6] = 32'b0;
+			regis [7] = 32'b0;
+			regis [8] = 32'b0;
+			regis [9] = 32'b0;
+			regis [10] = 32'b0;
+			regis [11] = 32'b0;
+			regis [12] = 32'b0;
+			regis [13] = 32'b0;
+			regis [14] = 32'b0;
+			regis [15] = 32'b0;
+		end
+		else if (PSEL_IN)
+			if (PENABLE_IN && PWRITE_IN) begin
+				case (PADDR_IN)
+					5'd0: regis[0] = PWDATA_IN;
+					5'd1: regis[1] = PWDATA_IN;
+					5'd2: regis[2] = PWDATA_IN;
+					5'd3: regis[3] = PWDATA_IN;
+					5'd4: regis[4] = PWDATA_IN;
+					5'd5: regis[5] = PWDATA_IN;
+					5'd6: regis[6] = PWDATA_IN;
+					5'd7: regis[7] = PWDATA_IN;
+					5'd8: regis[8] = PWDATA_IN;
+					5'd9: regis[9] = PWDATA_IN;
+					5'd10: regis[10] = PWDATA_IN;
+					5'd11: regis[11] = PWDATA_IN;
+					5'd12: regis[12] = PWDATA_IN;
+					5'd13: regis[13] = PWDATA_IN;
+					5'd14: regis[14] = PWDATA_IN;
+					5'd15: regis[15] = PWDATA_IN;
+				endcase
+			end
+			if (~rodada)begin
+				a = H[0];
+				b = H[1];
+				c = H[2];
+				d = H[3];
+				e = H[4];
+				rodada = 1'b1;
+			end		
+			
+			
+			T = ((rotation(a,4'd5)) | Ft(b,c,d,t) | e | Kt(t) | Wt(t));
+			t++;
+			e = d;
+			d = c;
+			d = rotation(b, 5'd30);
+			b = a;
+			a = T;
+			
+			H[0] = a | H[0];
+			H[1] = b | H[1];
+			H[2] = c | H[2];
+			H[3] = d | H[3];
+			H[4] = e | H[4];
+			
+			case (PADD_IN)
+				5'd16: PRDATA_OUT = H[0]
+				5'd17: PRDATA_OUT = H[1]
+				5'd18: PRDATA_OUT = H[2]
+				5'd19: PRDATA_OUT = H[3]
+				5'd20: PRDATA_OUT = H[4]
+			endcase
+			
+		
+	end
+	endmodule: SHA
+	
